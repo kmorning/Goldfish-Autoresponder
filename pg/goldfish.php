@@ -67,7 +67,7 @@
     $conf['q_disable_forwarding'] = "UPDATE autoresponder SET enabled = false WHERE to_date < CURRENT_DATE;";
     
     # This query has to activate every autoresponder entry which starts today
-    $conf['q_enable_forwarding'] = "UPDATE autoresponder SET enabled = true WHERE from_date <= CURRENT_DATE AND (to_date >= CURRENT_DATE() OR to_date ='0000-00-00');"; //modified for the autoresponder plugin
+    $conf['q_enable_forwarding'] = "UPDATE autoresponder SET enabled = true WHERE from_date <= CURRENT_DATE AND (to_date >= CURRENT_DATE OR to_date IS NULL);"; //modified for the autoresponder plugin
     
     # This query has to return the message of an autoresponder entry identified by email %m
     $conf['q_messages'] = "SELECT message FROM autoresponder WHERE email = '%m'";
