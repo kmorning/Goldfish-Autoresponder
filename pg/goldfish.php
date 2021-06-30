@@ -58,22 +58,29 @@
     /* Database Queries */
     
     # This query has to return the path (`path`) of the corresponding maildir-Mailbox with email-address %m
-    $conf['q_mailbox_path'] = "SELECT CONCAT('/var/vmail/', maildir) AS path FROM mailbox WHERE username = '%m'";
+    #$conf['q_mailbox_path'] = "SELECT CONCAT('/var/vmail/', maildir) AS path FROM mailbox WHERE username = '%m'";
     
     # This query has to return the following fields from the autoresponder table: `from_date`, `to_date`, `email`, `message` where `enabled` = true
-    $conf['q_forwardings'] = "SELECT * FROM autoresponder WHERE enabled = true AND force_disabled = false"; //modified for the autoresponder plugin
+    #$conf['q_forwardings'] = "SELECT * FROM autoresponder WHERE enabled = true AND force_disabled = false"; //modified for the autoresponder plugin
+    $conf['q_forwardings'] = "SELECT autoresponder.email, autoresponder.descname, CONCAT('/var/vmail/', mailbox.maildir) as path
+      FROM autoresponder
+      INNER JOIN mailbox ON autoresponder.email=mailbox.username
+      WHERE autoresponder.from_date <= CURRENT_DATE AND (autoresponder.to_date >= CURRENT_DATE OR autoresponder.to_date IS NULL) AND autoresponder.force_disabled = false;";
     
     # This query has to disable every autoresponder entry which ended in the past
-    $conf['q_disable_forwarding'] = "UPDATE autoresponder SET enabled = false WHERE to_date < CURRENT_DATE;";
+    #$conf['q_disable_forwarding'] = "UPDATE autoresponder SET enabled = false WHERE to_date < CURRENT_DATE;";
     
     # This query has to activate every autoresponder entry which starts today
-    $conf['q_enable_forwarding'] = "UPDATE autoresponder SET enabled = true WHERE from_date <= CURRENT_DATE AND (to_date >= CURRENT_DATE OR to_date IS NULL);"; //modified for the autoresponder plugin
+    #$conf['q_enable_forwarding'] = "UPDATE autoresponder SET enabled = true WHERE from_date <= CURRENT_DATE AND (to_date >= CURRENT_DATE OR to_date IS NULL);"; //modified for the autoresponder plugin
     
     # This query has to return the message of an autoresponder entry identified by email %m
-    $conf['q_messages'] = "SELECT message FROM autoresponder WHERE email = '%m'";
+    #$conf['q_messages'] = "SELECT message FROM autoresponder WHERE email = '%m';";
     
     # This query has to return the subject of the autoresponder entry identified by email %m
-    $conf['q_subject'] = "SELECT subject FROM autoresponder WHERE email = '%m'";
+    #$conf['q_subject'] = "SELECT subject FROM autoresponder WHERE email = '%m';";
+
+    # This query has to return the subject and message of an autoresponder entry identified by email %m
+    $conf['q_data'] = "SELECT subject, message FROM autoresponder WHERE email = '%m;'";
     
 
     ############################################################################
@@ -162,66 +169,56 @@
     ######################################
     # Update database entries #
     ######################################
-    $result = mysql_query($conf['q_disable_forwarding']);
+    # I'm removing enabled column from the db and using from_date/to_date in where clause of
+    # forwarding query.  This save unnecessary writes to the database.
+    /*
+    $result = pg_query($db, $conf['q_disable_forwarding']);
     
     if (!$result)
     {
-		$log->addLine("Error in query ".$conf['q_disable_forwarding']."\n".mysql_error());
+		$log->addLine("Error in query ".$conf['q_disable_forwarding']."\n");
     }
     else
     {
 		$log->addLine("Successfully updated database (disabled entries)");
     }
     
-    mysql_query($conf['q_enable_forwarding']);
+    pg_query($db, $conf['q_enable_forwarding']);
     
     if (!$result)
     {
-		$log->addLine("Error in query ".$conf['q_enable_forwarding']."\n".mysql_error());
+		$log->addLine("Error in query ".$conf['q_enable_forwarding']."\n");
     }
     else
     {
 		$log->addLine("Successfully updated database (enabled entries)");
     }
+    */
     
     ######################################
     # Catching dirs of autoresponders mailboxes #
     ######################################
-    
+    # FIXME:  We don't get any error result strings when using pg_query.
+    #         We would have to use pg_send_query() in conjunction with pg_result_error()
+    #         to get pg errors.
+
     // Corresponding email addresses
-    $result = mysql_query($conf['q_forwardings']);
+    $result = pg_query($db, $conf['q_forwardings']);
     
     if (!$result)
     {
-    	$log->addLine("Error in query ".$conf['q_forwardings']."\n".mysql_error());
+    	$log->addLine("Error in query ".$conf['q_forwardings']."\n");
     	exit;
     }
+
+    while ($row = pg_fetch_assoc($result)) {
+      $emails[] = $row['email'];
+      $name[] = $row['descname'];
+      $paths[] = $row['path'] . 'new/';
+    }
    
-    $num = mysql_num_rows($result);
-    
-    for ($i = 0; $i < $num; $i++)
-    {
-		$emails[] = mysql_result($result, $i, "email");
-		$name[] = mysql_result($result, $i, "descname");
-    }
-    
-    // Fetching directories
-    for ($i = 0; $i < $num; $i++)
-    {
-		$result = mysql_query(str_replace("%m", $emails[$i], $conf['q_mailbox_path']));
-		
-		if (!$result)
-		{
-	    	$log->addLine("Error in query ".$conf['q_mailbox_path']."\n".mysql_error()); exit;
-		}
-		else
-		{
-	    	$log->addLine("Successfully fetched maildir directories");
-		}
-	
-		$paths[] = mysql_result($result, 0, 'path') . 'new/';
-    }
-    
+    $num = pg_num_rows($result);
+
     ######################################
     # Reading new mails #
     ######################################
@@ -236,6 +233,11 @@
 
 	    	foreach(scandir($path) as $entry)
 	    	{
+          # intialize subject and message to NULL on initial search of path.  Subject and message will get cached for
+          # each path if new emails are present.
+          $subject = NULL;
+          $message = NULL;
+
 		    	if ($entry != '.' && $entry != '..')
 		    	{
                     $log->addLine("Found entry [" . $entry . "] in directory " . $path);
@@ -282,35 +284,21 @@
 			    		{
 							// Get data of current mail
 				   			$email = $emails[$i];
-				    
-				    		// Get subject
-				    		$result = mysql_query(str_replace("%m", $emails[$i], $conf['q_subject']));
-				    
-				    		if (!$result)
-				    		{
-								$log->addLine("Error in query ".$conf['q_subject']."\n".mysql_error()); exit;
-				    		}
-				    		else
-				    		{
-								$log->addLine("Successfully fetched subject of {$emails[$i]}");
-				    		}
-		
-				    		$subject = mysql_result($result, 0, 'subject');
-	
-				    		// Get Message
-				    		$result = mysql_query(str_replace("%m", $emails[$i], $conf['q_messages']));
-				    		
-				    		if (!$result)
-				    		{
-								$log->addLine("Error in query ".$conf['q_messages']."\n".mysql_error()); exit;
-				    		}
-				    		else
-				    		{
-								$log->addLine("Successfully fetched message of {$emails[$i]}");
-				    		}
-				    
-				    		$message = mysql_result($result, 0, 'message');
-	
+
+                # Only retrieve subject and message from db if they haven't been cached yet
+                if ( subject === NULL || message === NULL) {
+                  $result = pg_query($db, $conf['q_data']);
+                
+                  if (!$result)
+                  {
+                    $log->addLine("Error in query ".$conf['q_data']."\n");
+                    exit;
+                  }
+                  $row = pg_fetch_assoc($result)
+                  $subject = $row['subject'];
+                  $message = $row['message'];
+                }
+
 				    		$headers = "From: ".$name[$i]."<".$emails[$i].">";
 	
 				    		// Check if mail is allready an answer:
