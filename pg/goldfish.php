@@ -229,14 +229,14 @@
 	    
 	    foreach ($paths as $path)
 	    {
-            $log->addLine("Start scanning directory " . $path);
+                $log->addLine("Start scanning directory " . $path);
+                # intialize subject and message to NULL on initial search of path.  Subject and message will get cached for
+                # each path if new emails are present.
+                $subject = NULL;
+                $message = NULL;
 
 	    	foreach(scandir($path) as $entry)
 	    	{
-          # intialize subject and message to NULL on initial search of path.  Subject and message will get cached for
-          # each path if new emails are present.
-          $subject = NULL;
-          $message = NULL;
 
 		    	if ($entry != '.' && $entry != '..')
 		    	{
@@ -286,7 +286,7 @@
 				   			$email = $emails[$i];
 
                 # Only retrieve subject and message from db if they haven't been cached yet
-                if ( subject === NULL || message === NULL) {
+                if ( $subject === NULL || $message === NULL) {
                   $result = pg_query($db, $conf['q_data']);
                 
                   if (!$result)
