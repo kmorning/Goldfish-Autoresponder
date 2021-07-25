@@ -294,7 +294,7 @@
                     $log->addLine("Error in query ".$conf['q_data']."\n");
                     exit;
                   }
-                  $row = pg_fetch_assoc($result)
+                  $row = pg_fetch_assoc($result);
                   $subject = $row['subject'];
                   $message = $row['message'];
                 }
