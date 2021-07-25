@@ -297,6 +297,7 @@
                   $row = pg_fetch_assoc($result);
                   $subject = $row['subject'];
                   $message = $row['message'];
+                  $log->addLine("Caching message, subject = ".$subject;
                 }
 
 				    		$headers = "From: ".$name[$i]."<".$emails[$i].">";
