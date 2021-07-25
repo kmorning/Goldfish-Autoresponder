@@ -287,7 +287,7 @@
 
                 # Only retrieve subject and message from db if they haven't been cached yet
                 if ( $subject === NULL || $message === NULL) {
-                  $result = pg_query($db, $conf['q_data']);
+                  $result = pg_query($db, str_replace("%m", $emails[$i], $conf['q_data']));
                 
                   if (!$result)
                   {
