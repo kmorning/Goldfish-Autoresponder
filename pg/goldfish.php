@@ -45,7 +45,7 @@
     $conf['cycle'] = 5 * 60;
     
     /* Logging */
-    $conf['log_file_path'] = "/var/log/goldfish";
+    $conf['log_file_path'] = "/var/log/goldfish/goldfish.log";
     $conf['write_log'] = true;
     
     /* Database information */
