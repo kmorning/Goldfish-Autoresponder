@@ -80,7 +80,7 @@
     #$conf['q_subject'] = "SELECT subject FROM autoresponder WHERE email = '%m';";
 
     # This query has to return the subject and message of an autoresponder entry identified by email %m
-    $conf['q_data'] = "SELECT subject, message FROM autoresponder WHERE email = '%m;'";
+    $conf['q_data'] = "SELECT subject, message FROM autoresponder WHERE email = '%m';";
     
 
     ############################################################################
