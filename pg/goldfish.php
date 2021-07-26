@@ -300,7 +300,10 @@
                   $log->addLine("Caching message, email = ".$email." subject = ".$subject."\n");
                 }
 
-				    		$headers = "From: ".$name[$i]."<".$emails[$i].">;Content-Type: text/html;MIME-Version: 1.0";
+				    		$headers = "From: ".$name[$i]."<".$emails[$i].">\r\n";
+                                                $headers .= "MIME-Version: 1.0\r\n";
+                                                $headers .= "Content-Type: text/html; charset=ISO-8859-1\r\n";
+
 	
 				    		// Check if mail is allready an answer:
 				    		if (strstr($mail, $message))
